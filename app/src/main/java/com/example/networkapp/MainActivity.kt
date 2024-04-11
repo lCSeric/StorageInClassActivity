@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var preferences: SharedPreferences
     lateinit var file: File
     var internalFilename = "my_file"
-    var autoSave = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -57,68 +57,55 @@ class MainActivity : AppCompatActivity() {
         preferences = getPreferences(MODE_PRIVATE)
         file = File(filesDir, internalFilename)
 
-        autoSave = preferences.getBoolean(AUTO_SAVE_KEY, false)
 
 
         showButton.setOnClickListener {
             downloadComic(numberEditText.text.toString())
         }
-
+        if (file.exists()){
+            loadComic()
+        }
     }
 
     private fun downloadComic(comicId: String) {
         val url = "https://xkcd.com/$comicId/info.0.json"
         requestQueue.add(
-            JsonObjectRequest(url, { showComic(it) }, {
+            JsonObjectRequest(url, { showComic(it);saveComic(it)}, {
             })
         )
-        if (autoSave) {
-            saveComic(comicId)
-        }
-        loadComic()
     }
 
     private fun showComic(comicObject: JSONObject) {
         titleTextView.text = comicObject.getString("title")
         descriptionTextView.text = comicObject.getString("alt")
-        saveComic(
-            comicObject.getString("title") + "\n" + comicObject.getString("alt") + "\n" + comicObject.getString(
-                "img"
-            )
-        )
         Picasso.get().load(comicObject.getString("img")).into(comicImageView)
     }
 
-    private fun saveComic(comicId: String) {
-        if (autoSave) {
+    private fun saveComic(comicObject: JSONObject) {
             try {
                 val outputStream = FileOutputStream(file)
-                outputStream.write(comicId.toByteArray())
+                outputStream.write(comicObject.toString().toByteArray())
                 outputStream.close()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-    }
 
     private fun loadComic() {
-        if (autoSave && file.exists()) {
-            try {
-                val br = BufferedReader(FileReader(file))
-                val savedComic = br.readText()
-                val parts = savedComic.split("\n")
-                if (parts.size >= 3) {
-                    titleTextView.text = parts[0]
-                    descriptionTextView.text = parts[1]
-                    Picasso.get().load(parts[2]).into(comicImageView)
-                }
-                br.close()
-            } catch (e: IOException) {
-                e.printStackTrace()
+
+        try {
+            val br = BufferedReader(FileReader(file))
+            var line: String?
+            val text = StringBuilder()
+            while (br.readLine().also { line = it } != null) {
+                Log.d("TEST", line.toString())
+                text.append(line)
             }
+            br.close()
+            showComic(JSONObject(text.toString()))
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
     }
 }
-
-
